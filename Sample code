@@ -1,0 +1,49 @@
+import json
+import boto3
+
+client = boto3.client('ses', region_name='us-west-2')
+backup_client = boto3.client('backup')
+
+def lambda_handler(event, context):
+
+backup_client_response = backup_client.list_recovery_points_by_backup_vault(
+BackupVaultName=event['BackupVaultName'],
+BackupVaultAccountId=event['BackupVaultAccountId']
+)
+print(backup_client_response)
+total_vault_size = 0
+for recovery_point in backup_client_response['RecoveryPoints']:
+total_vault_size += recovery_point['BackupSizeInBytes']
+
+response = client.send_email(
+Destination={
+'ToAddresses': event['RecipientEmailAddress']
+},
+Message={
+'Body': {
+'Text': {
+'Charset': 'UTF-8',
+'Data': f'Total Vault size for {event['BackupVaultName']} is {total_vault_size}',
+}
+},
+'Subject': {
+'Charset': 'UTF-8',
+'Data': 'Test email',
+},
+},
+Source=event['SourceEmailAddress']
+)
+
+print(response)
+
+return {
+'statusCode': 200,
+'body': json.dumps("Email Sent Successfully. MessageId is: " + response['MessageId'])
+}
+Input event: 
+{
+  "BackupVaultName": "vault123",
+  "BackupVaultAccountId": "1234567890",
+  "RecipientEmailAddress": "abc@amazon.com",
+  "SourceEmailAddress": "def@amazon.com"
+}
